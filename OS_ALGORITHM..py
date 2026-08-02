@@ -1,4 +1,4 @@
-from collections import deque
+from collections import deque# required for implementing the ready queue in Round Robin scheduling
 
 # Function to Print Gantt Chart
 def print_gantt(gantt):
@@ -6,7 +6,7 @@ def print_gantt(gantt):
 
     # Merge consecutive same processes
     for p in gantt:
-        if not compressed or compressed[-1][0] != p:
+        if not compressed or compressed[-1][0] != p:#checkes if the last process in the compressed list is different from the current process
             compressed.append([p, 1])
         else:
             compressed[-1][1] += 1
@@ -37,6 +37,17 @@ def print_gantt(gantt):
     print("\n")
 
 
+# Counts how many times the process running on the CPU changes
+# (used only for the tie-break decision, does not affect scheduling logic)
+def count_switches(gantt):
+    switches = 0
+    for i in range(1, len(gantt)): 
+        if gantt[i] != gantt[i - 1]:
+            switches += 1
+    return switches
+
+
+#-------------------------- SRTF (Shortest Remaining Time First) --------------------------
 def srtf(p):
     n = len(p)
     rt = [x[2] for x in p]
@@ -45,55 +56,57 @@ def srtf(p):
     gantt = []
 
     while done < n:
-        idx = -1
+        idx = -1    
         mn = 10 ** 9
         for i in range(n):
-            if p[i][1] <= t and rt[i] > 0 and rt[i] < mn:
+            if p[i][1] <= t and rt[i] > 0 and rt[i] < mn:# it checks if the process has arrived, has remaining time, and has the least remaining time among all processes
                 mn = rt[i]
                 idx = i
 
-        if idx == -1:
+        if idx == -1: #
             future = [p[i][1] for i in range(n) if rt[i] > 0 and p[i][1] > t]
 
             if future:
                 next_time = min(future)
-                gantt.extend(["Idle"] * (next_time - t))
-                t = next_time
-            continue
+                gantt.extend(["Idle"] * (next_time - t))#curr = 5 , arr = 8 , diff = 3
+                t = next_time #jumps directly
+            continue    
 
-        gantt.append(p[idx][0])
-        rt[idx] -= 1
+        gantt.append(p[idx][0])#IF SELECTED PROCESS IS P2 IT WILL APPEND P2 IN GANTT CHART 
+        rt[idx] -= 1 #reduces the remaining time of the selected process by 1
         t += 1
 
         if rt[idx] == 0:
-            ct[idx] = t
-            done += 1
+            ct[idx] = t #stores ct
+            done += 1 #increases ct by 1
 
-    tat = [ct[i] - p[i][1] for i in range(n)]
-    wt = [tat[i] - p[i][2] for i in range(n)]
+    tat = [ct[i] - p[i][1] for i in range(n)] #calc tat for each p
+    wt = [tat[i] - p[i][2] for i in range(n)]#calc wt for each p
 
     print("\n----- SRTF -----")
     print_gantt(gantt)
-    print("Process\tCT\tTAT\tWT")
+    print("Process\tCT\tTAT\tWT\tRT")
     for i in range(n):
-        print(f"{p[i][0]}\t{ct[i]}\t{tat[i]}\t{wt[i]}")
+        print(f"{p[i][0]}\t{ct[i]}\t{tat[i]}\t{wt[i]}\t{rt[i]}")
+        # prints ct, tat, wt, rt for each process
     print("Average WT =", round(sum(wt) / n, 2))
     print("Average TAT =", round(sum(tat) / n, 2))
     return (
         sum(wt) / n,
-        sum(tat) / n
+        sum(tat) / n,
+        gantt
     )
 
-
+#---------------------------------------- ROUND ROBIN ----------------------------------------
 def rr(p, q):
-    n = len(p)
+    n = len(p) 
     rem = [x[2] for x in p]
-    ct = [0] * n
-    t = 0
-    gantt = []
-    ready = deque()
-    visited = [False] * n
-    done = 0
+    ct = [0] * n 
+    t = 0#current CPU time
+    gantt = [] 
+    ready = deque()#processes that are ready to execute
+    visited = [False] * n #KEEPS TRACK OF PROCESSES THAT HAVE BEEN ADDED TO THE READY QUEUE
+    done = 0 
 
     while done < n:
         for i in range(n):
@@ -102,7 +115,7 @@ def rr(p, q):
                 visited[i] = True
 
         if not ready:
-            future = [p[i][1] for i in range(n) if not visited[i]]
+            future = [p[i][1] for i in range(n) if not visited[i]]#future arrival times of processes that have not yet been visited
 
             if future:
                 next_time = min(future)
@@ -110,16 +123,20 @@ def rr(p, q):
                 t = next_time
             continue
 
-        i = ready.popleft()
+        i = ready.popleft()#pops the first process from the ready queue
         run = min(q, rem[i])
+        #suppose TIME SLICE = 4
+        #rt = 2
+        #cpu should execute 2 and not 4 
+        #min() chooses smaller value.
 
         for _ in range(run):
             gantt.append(p[i][0])
-        t += run
-        rem[i] -= run
+        t += run#it increases cpu time, amt of time process runs
+        rem[i] -= run# it decreses cpu time, amt of time process runs
 
         for j in range(n):
-            if p[j][1] <= t and not visited[j]:
+            if p[j][1] <= t and not visited[j]:#Adds all newly arrived processes to the ready queue.
                 ready.append(j)
                 visited[j] = True
 
@@ -134,14 +151,16 @@ def rr(p, q):
 
     print("\n----- ROUND ROBIN -----")
     print_gantt(gantt)
-    print("Process\tCT\tTAT\tWT")
+    print("Process\tCT\tTAT\tWT\tRT")
     for i in range(n):
-        print(f"{p[i][0]}\t{ct[i]}\t{tat[i]}\t{wt[i]}")
+        print(f"{p[i][0]}\t{ct[i]}\t{tat[i]}\t{wt[i]}\t{rem[i]}")
     print("Average WT =", round(sum(wt) / n, 2))
     print("Average TAT =", round(sum(tat) / n, 2))
+
     return (
         sum(wt) / n,
-        sum(tat) / n
+        sum(tat) / n,
+        gantt
     )
 
 
@@ -150,7 +169,7 @@ def rr(p, q):
 # Number of Processes
 while True:
     try:
-        n = int(input("Enter number of processes (1-20): "))
+        n = int(input("Enter number of processes (1-20): ")) 
         if n <= 0:
             print("Error: Number of processes must be greater than 0.\n")
         elif n > 20:
@@ -189,7 +208,7 @@ for i in range(n):
         except ValueError:
             print(f"Error: Burst Time of P{i+1} must be an integer.\n")
 
-    p.append((f"P{i+1}", at, bt))
+    p.append((f"P{i+1}", at, bt))# # Store process as (Process Name, Arrival Time, Burst Time)
 
 # Time Quantum
 while True:
@@ -205,21 +224,32 @@ while True:
         print("Error: Time Quantum must be an integer.\n")
 
 # Execute Algorithms
-srtf_wt, srtf_tat = srtf(p)
-rr_wt, rr_tat = rr(p, q)
+srtf_wt, srtf_tat, srtf_gantt = srtf(p)
+rr_wt, rr_tat, rr_gantt = rr(p, q)
 
 # ---------------- COMPARISON ----------------
 
 print("\n----- COMPARISON -----")
+srtf_score = srtf_wt + srtf_tat
+rr_score = rr_wt + rr_tat
 
-if srtf_wt < rr_wt and srtf_tat < rr_tat:
+if srtf_score < rr_score:
     print("RESULT: SRTF performs better")
-    print("SRTF always runs the process with the least work left, so jobs finish sooner and wait less.")
-
-elif rr_wt < srtf_wt and rr_tat < srtf_tat:
+elif rr_score < srtf_score:
     print("RESULT: Round Robin performs better")
-    print("Round Robin gives every process a fair turn, so no single process waits too long.")
-
 else:
-    print("RESULT: Mixed performance")
-    print("One algorithm has lower waiting time, the other has lower turnaround time, so neither wins overall.")
+    # Scores are tied on WT + TAT, so decide the winner using the Gantt chart
+    # itself: fewer context switches means less CPU switching overhead.
+    srtf_switches = count_switches(srtf_gantt)
+    rr_switches = count_switches(rr_gantt)
+
+    print(f"Scores are tied (WT+TAT = {srtf_score:.2f}). Deciding winner using Gantt chart context switches.")
+    print(f"SRTF Context Switches = {srtf_switches}")
+    print(f"Round Robin Context Switches = {rr_switches}")
+
+    if srtf_switches < rr_switches:
+        print("RESULT: SRTF performs better (fewer context switches on Gantt chart)")
+    elif rr_switches < srtf_switches:
+        print("RESULT: Round Robin performs better (fewer context switches on Gantt chart)")
+    else:
+        print("RESULT: Both perform equally (even Gantt chart context switches are same)")
